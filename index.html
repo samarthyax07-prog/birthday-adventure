@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Birthday Expedition</title>
+    <style>
+        :root {
+            --primary-pink: #ff4d94;
+            --soft-gold: #ffd700;
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            font-family: 'Trebuchet MS', sans-serif;
+            color: white; overflow: hidden;
+            background: var(--bg-gradient);
+        }
+
+        .bg-decor {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: url('https://www.transparenttextures.com/patterns/confetti.png');
+            opacity: 0.4; z-index: 0; pointer-events: none;
+        }
+
+        .phase {
+            display: none; height: 100vh; flex-direction: column;
+            justify-content: center; align-items: center;
+            position: relative; z-index: 10; text-align: center;
+            padding: 20px;
+        }
+
+        .active { display: flex; animation: slideUp 0.6s ease-out; }
+
+        .banner-text {
+            font-size: 4rem;
+            color: var(--soft-gold);
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+            margin: 0;
+            animation: bounce 2s infinite;
+        }
+
+        /* Cake Styling */
+        .cake-box { position: relative; width: 200px; height: 150px; margin-bottom: 20px; }
+        .cake-layer {
+            width: 180px; height: 80px; background: #fff1f1;
+            border-radius: 15px 15px 0 0; position: absolute; bottom: 0; left: 10px;
+            box-shadow: inset 0 -10px 0 #f8bbd0, 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .icing-top {
+            width: 180px; height: 30px; background: #f06292;
+            border-radius: 15px 15px 5px 5px; position: absolute; top: 70px; left: 10px;
+        }
+        .candle {
+            width: 10px; height: 40px; background: #ffee58;
+            position: absolute; top: 30px; left: 95px; border-radius: 3px;
+        }
+        .flame {
+            width: 15px; height: 22px; background: #ff9800;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            position: absolute; top: -20px; left: -2.5px;
+            display: none; box-shadow: 0 0 15px #ff5722;
+            animation: flicker 0.15s infinite;
+        }
+
+        /* Fireworks & Balloons */
+        #fwCanvas { position: fixed; top: 0; left: 0; pointer-events: none; z-index: 5; }
+        .balloon {
+            position: absolute; bottom: -100px; font-size: 40px;
+            animation: floatUp 7s linear forwards; z-index: 6;
+        }
+
+        .rocket {
+            position: fixed; bottom: -100px; left: 20px;
+            font-size: 50px; z-index: 20; transition: transform 3s ease-in;
+        }
+
+        button {
+            padding: 15px 40px; font-size: 1.2rem; border-radius: 50px;
+            border: none; background: var(--soft-gold); color: #4b0082;
+            font-weight: bold; cursor: pointer; transition: 0.3s;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+        }
+        button:hover { transform: scale(1.1); background: #fff; }
+
+        input {
+            padding: 12px; border-radius: 10px; border: none;
+            width: 250px; font-size: 1.1rem; margin-bottom: 20px;
+            text-align: center; color: #333;
+        }
+
+        #final-msg { font-size: 2.5rem; font-weight: bold; margin-top: 20px; opacity: 0; transition: 2s; }
+
+        @keyframes flicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; transform: scale(1.1); } }
+        @keyframes floatUp { to { transform: translateY(-120vh) rotate(20deg); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    </style>
+</head>
+<body>
+
+<div class="bg-decor"></div>
+<canvas id="fwCanvas"></canvas>
+
+<div id="phase1" class="phase active">
+    <div style="font-size: 50px;">🎂</div>
+    <h1 class="banner-text">HAPPY BIRTHDAY!</h1>
+    <p>A day as special as yours deserves an adventure.<br>The party gates are locked... for now.</p>
+    <button onclick="goToPhase(2)">Start your surprise</button>
+</div>
+
+<div id="phase2" class="phase">
+    <h2>The Party Riddle</h2>
+    <p>Solve this to reveal the celebration:<br><br>
+    <i>"I only appear when you are celebrated. I am filled with air, I am bright and round, but if I touch a pin, I make a loud sound. What am I?"</i></p>
+    <input type="text" id="ans" placeholder="Type your answer here...">
+    <br>
+    <button onclick="checkRiddle()">Unlock the Cake!</button>
+</div>
+
+<div id="phase3" class="phase">
+    <div class="cake-box">
+        <div class="cake-layer"></div>
+        <div class="icing-top"></div>
+        <div class="candle"><div class="flame" id="flame"></div></div>
+    </div>
+    <div id="final-msg">Happy Birthday Ms. Curiosity! 💖</div>
+    <div class="rocket" id="rocket">🚀</div>
+</div>
+
+<audio id="music" loop>
+    <source src="https://cdn.pixabay.com/audio/2022/05/27/audio_180873747b.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+    const canvas = document.getElementById('fwCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    function goToPhase(n) {
+        document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+        document.getElementById('phase' + n).classList.add('active');
+        if(n === 3) handleFinale();
+    }
+
+    function checkRiddle() {
+        const val = document.getElementById('ans').value.toLowerCase().trim();
+        if(val.includes("balloon")) {
+            goToPhase(3);
+        } else {
+            alert("Think of something colorful floating at a party!");
+        }
+    }
+
+    function handleFinale() {
+        // Instant Light-up
+        document.getElementById('flame').style.display = 'block';
+        
+        // Play Lofi Track
+        const audio = document.getElementById('music');
+        audio.volume = 0.6;
+        audio.play().catch(e => console.log("Audio play blocked by browser. Interaction needed."));
+
+        // Reveal Message
+        document.getElementById('final-msg').style.opacity = '1';
+        
+        // Instant Rocket Takeoff
+        const r = document.getElementById('rocket');
+        r.style.transform = "translate(100vw, -100vh) rotate(45deg)";
+
+        // Continuous Party Effects
+        setInterval(spawnBalloon, 400);
+        animateFW();
+    }
+
+    function spawnBalloon() {
+        const b = document.createElement('div');
+        b.className = 'balloon';
+        const icons = ['🎈', '✨', '🎁', '💖', '⭐'];
+        b.innerText = icons[Math.floor(Math.random()*icons.length)];
+        b.style.left = Math.random() * 90 + 'vw';
+        document.body.appendChild(b);
+        setTimeout(() => b.remove(), 7000);
+    }
+
+    let particles = [];
+    function animateFW() {
+        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (Math.random() < 0.15) createExplosion(Math.random()*canvas.width, Math.random()*canvas.height/2);
+        particles.forEach((p, i) => {
+            p.x += p.vx; p.y += p.vy; p.alpha -= 0.01;
+            ctx.fillStyle = `rgba(${p.c},${p.alpha})`;
+            ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
+            if(p.alpha <= 0) particles.splice(i, 1);
+        });
+        requestAnimationFrame(animateFW);
+    }
+
+    function createExplosion(x, y) {
+        const colors = ['255,105,180', '255,215,0', '0,191,255', '144,238,144'];
+        const c = colors[Math.floor(Math.random()*colors.length)];
+        for(let i=0; i<40; i++) {
+            particles.push({
+                x, y, c, alpha: 1,
+                vx: (Math.random()-0.5)*8,
+                vy: (Math.random()-0.5)*8
+            });
+        }
+    }
+</script>
+</body>
+</html>
